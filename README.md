@@ -2,7 +2,6 @@
 
 This is a Load Balancer implemented in Rust for learning purposes. A load balancer routes client requests across multiple servers, ensuring efficient distribution, high availability, and flexibility to adapt to server changes.
 
-![Load Balancer]
 
 ## About Load Balancers
 
