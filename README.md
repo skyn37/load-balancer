@@ -2,7 +2,7 @@
 
 This is a Load Balancer implemented in Rust for learning purposes. A load balancer routes client requests across multiple servers, ensuring efficient distribution, high availability, and flexibility to adapt to server changes.
 
-![Load Balancer](https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/AWS_Simple_Icons_Networking_Amazon_Elastic_Load_Balancer.svg/1024px-AWS_Simple_Icons_Networking_Amazon_Elastic_Load_Balancer.svg.png)
+![Load Balancer]
 
 ## About Load Balancers
 
