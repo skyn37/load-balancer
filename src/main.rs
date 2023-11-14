@@ -12,14 +12,16 @@ struct Server {
     port: String,
     ip: String,
     current_index: usize,
+    online: Arc<Mutex<bool>>,
 }
 
 impl Server {
-    fn new(port: String, ip: String, current_index: usize) -> Self {
+    fn new(port: String, ip: String, current_index: usize, online: Arc<Mutex<bool>>,) -> Self {
         Server {
             port,
             ip,
             current_index,
+            online
         }
     }
 
@@ -31,9 +33,25 @@ impl Server {
 
         let health = call_server(Some(&self.ip), &self.port, &[0]).await;
         match health {
-            Ok(_) => true,
-            Err(_) => false,
+            Ok(_) => {
+                self.set_online().await;
+                true
+            }
+            Err(_) => {
+                self.set_offline().await;
+                false
+            }
          }
+    }
+
+    async fn set_offline(&self) {
+        let mut online = self.online.lock().await;
+        *online = false;
+    }
+
+    async fn set_online(&self) {
+        let mut online = self.online.lock().await;
+        *online = true;
     }
 }
 
@@ -45,7 +63,7 @@ async fn hanlde_args() -> Option<Vec<Server>> {
         let arg_values: Vec<&str> = args.iter().skip(1).flat_map(|s| s.split(',')).collect();
         for (index, server) in arg_values.iter().enumerate() {
             if let Some((a, b)) = server.split_once(':') {
-                server_collection.push(Server::new(b.into(), a.into(), index));
+                server_collection.push(Server::new(b.into(), a.into(), index, Arc::new(Mutex::new(true))));
             } else {
             }
         }
@@ -85,14 +103,25 @@ async fn frwd_request(
         index
     };
 
-    let server = &server_collection[server_index];
+    // Try to find the next online server
+    let mut next_index = server_index;
+    while !*server_collection[next_index].online.lock().await {
+        println!("Server {} is offline, trying the next server...", server_collection[next_index].get_index());
+        next_index = (next_index + 1) % server_collection.len();
+        if next_index == server_index {
+            println!("All servers are offline, request not forwarded");
+            return Ok(());
+        }
+    }
+
+    let server = &server_collection[next_index];
+
     let mut buffer = [0; 1024];
     let req_bytes = data.read(&mut buffer).await?;
     if req_bytes == 0 {
         return Ok(());
     }
     let forwarded_res = call_server(Some(&server.ip), &server.port, &buffer).await?;
-
     data.write_all(forwarded_res.as_bytes()).await?;
 
     Ok(())
@@ -112,7 +141,7 @@ async fn health_check_loop(server_collection: Arc<Vec<Server>>) {
             if !is_healthy {
                 println!("Server {} is not healthy", server.get_index());
             } else { 
-                println!("server healthy")
+                println!("Server {} healthy", server.get_index());
             }
         }
     }
